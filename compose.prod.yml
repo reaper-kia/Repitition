@@ -1,0 +1,238 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    mem_limit: 250m
+    cpus: 0.75
+    pids_limit: 200
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    logging: *default-logging
+    container_name: hackathon_app
+    env_file:
+      - .env.prod
+    depends_on:
+      db: 
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command:
+      - uvicorn
+      - src.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --proxy-headers
+      - --forwarded-allow-ips=*
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+    restart: unless-stopped
+    
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    networks:
+      - edge
+      - backend
+
+  frontend:
+    mem_limit: 150m
+    cpus: 0.25
+    pids_limit: 200
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    logging: *default-logging
+    container_name: hackathon_frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/nginx-health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - edge
+
+
+  db:
+    mem_limit: 350m
+    cpus: 0.75
+    pids_limit: 200
+    image: postgres:17-alpine
+    container_name: hackathon_db
+    logging: *default-logging
+    env_file:
+      - .env.prod
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - backend
+  
+  redis:
+    mem_limit: 100m
+    cpus: 0.25
+    pids_limit: 100
+    image: redis:7-alpine
+    logging: *default-logging
+    container_name: hackathon_redis
+
+    volumes:
+      - prod_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - backend
+    
+  kafka:
+    mem_limit: 1000m
+    cpus: 1
+    pids_limit: 200
+    image: apache/kafka:4.3.0
+    container_name: hackathon_kafka
+    logging: *default-logging
+    environment:
+      KAFKA_LISTENERS: CONTROLLER://localhost:9091,HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,HOST:PLAINTEXT,DOCKER:PLAINTEXT
+      
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9091
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+      
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - backend
+  
+  outbox_publisher:
+    mem_limit: 150m
+    cpus: 0.25
+    pids_limit: 100
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    logging: *default-logging
+    container_name: hackathon_outbox_publisher
+    env_file:
+      - .env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: python -m src.workers.outbox_publisher
+    restart: unless-stopped
+    
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+         
+    networks:
+        - backend
+  
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+
+    container_name: hackathon_migrate
+
+    env_file:
+      - .env.prod
+
+    command: alembic upgrade head
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    restart: "no"
+
+    mem_limit: 200m
+    cpus: 0.50
+    pids_limit: 100
+
+    logging: *default-logging
+
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    networks:
+      - backend
+
+
+networks:
+  edge:
+    driver: bridge
+  
+  backend:
+    driver: bridge
+
+volumes:
+  prod_postgres_data:
+  prod_redis_data:

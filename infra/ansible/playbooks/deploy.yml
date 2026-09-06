@@ -1,0 +1,134 @@
+---
+- name: Deploy
+  hosts: base_name
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - git
+          - curl
+          - ca-certificates
+        state: present
+        update_cache: true
+    
+    - name: Add Docker repository
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: deb
+        uris: https://download.docker.com/linux/ubuntu
+        suites: "{{ ansible_distribution_release }}"
+        components: stable
+        architectures: amd64
+        signed_by: https://download.docker.com/linux/ubuntu/gpg
+        install_python_debian: true
+      register: docker_repo
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+      when: docker_repo.changed
+    
+    - name: Install Docker
+      ansible.builtin.apt:
+        name: 
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+          - docker-buildx-plugin
+        state: present
+    
+    - name: Ensure Docker service is running
+      ansible.builtin.systemd_service:
+        name: docker
+        state: started
+        enabled: true
+    
+    - name: Add reaper to docker group
+      ansible.builtin.user:
+        name: reaper
+        groups: docker
+        append: true
+    
+    - name: Clone repository
+      ansible.builtin.git:
+        repo: "{{ app_repo }}"
+        dest: "{{ deploy_dir }}"
+        version: "{{ app_version }}"
+        update: true
+      become: false
+    
+    - name: Ensure TLS directory exists
+      ansible.builtin.file:
+        path: "{{ deploy_dir }}/certs"
+        state: directory
+        owner: "{{ deploy_user}}"
+        group: "{{ deploy_user}}"
+        mode: '0755'
+    
+    - name: Copy TLS certificate
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../files/tls/localhost.crt"
+        dest: "{{ deploy_dir }}/certs/localhost.crt"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Copy TLS private key
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../files/tls/localhost.key"
+        dest: "{{ deploy_dir }}/certs/localhost.key"
+        owner: root
+        group: root
+        mode: "0600"
+    
+    - name: Validate secrets
+      ansible.builtin.assert:
+        that:
+          - postgres_password is defined
+          - jwt_secret_key is defined
+          - admin_registration_code is defined
+        fail_msg: "Required application secrets are missing"
+
+    - name: Render production environment
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/base.env.j2"
+        dest: "{{ deploy_dir }}/.env.prod"
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: "0600"
+    
+    - name: Stop local application stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ deploy_dir }}"
+        files: docker-compose.yml
+        state: absent
+
+    - name: Start production stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ deploy_dir }}"
+        files: compose.prod.yml
+        state: present
+        build: always
+        wait: true
+    
+    - name: Check application health
+      ansible.builtin.uri:
+        url: https://127.0.0.1/health
+        validate_certs: false
+        status_code: 200
+
+    - name: Check database health
+      ansible.builtin.uri:
+        url: https://127.0.0.1/health/db
+        validate_certs: false
+        status_code: 200
+
+    - name: Check Redis health
+      ansible.builtin.uri:
+        url: https://127.0.0.1/health/redis
+        validate_certs: false
+        status_code: 200

@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+.python-version
+
+# Virtual environments
+.venv/
+venv/
+env/
+myenv/
+ci-venv/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Mypy / Ruff / tooling
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# IDE / editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+/certs/*.key
+/certs/*.crt
+# Project generated files
+project-tree.txt
+
+infra/ansible/files/tls/*.key
+# Секреты ansible: игнорируем в любой группе, шаблон .example коммитим
+infra/ansible/inventory/group_vars/*/secrets.yml
+!infra/ansible/inventory/group_vars/*/secrets.yml.example
