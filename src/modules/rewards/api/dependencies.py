@@ -11,7 +11,9 @@ from src.modules.rewards.application.handlers.get_rewards_by_id import (
 from src.modules.rewards.application.ports.rewards_repository import (
     RewardsReadRepository,
 )
-from src.modules.rewards.application.queries.get_rewards_by_id import GetRewardsByIdQuery
+from src.modules.rewards.application.queries.get_rewards_by_id import (
+    GetRewardsByIdQuery,
+)
 from src.modules.rewards.infra.repositories import SQLAlchemyRewardsReadRepository
 from src.shared.api.dependencies import get_unit_of_work_factory
 from src.shared.application.mediator import Mediator

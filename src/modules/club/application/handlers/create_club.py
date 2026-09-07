@@ -10,7 +10,7 @@ class CreateClubCommandHandler:
     uow_factory: UnitOfWorkFactory
 
     async def handle(self, cmd: CreateClubCommand) -> Club:
-        entity = Club.create(name=cmd.name)
+        entity = Club.create(name=cmd.name, city=cmd.city)
 
         async with self.uow_factory() as uow:
             # TODO: заменить uow.club на реальное имя атрибута,

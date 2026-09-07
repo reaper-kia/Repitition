@@ -11,7 +11,7 @@ __pycache__/
 .venv/
 venv/
 env/
-myenv/
+myvenv/
 ci-venv/
 
 # Environment variables

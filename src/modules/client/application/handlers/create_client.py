@@ -10,7 +10,7 @@ class CreateClientCommandHandler:
     uow_factory: UnitOfWorkFactory
 
     async def handle(self, cmd: CreateClientCommand) -> Client:
-        entity = Client.create(name=cmd.name)
+        entity = Client.register(name=cmd.name)
 
         async with self.uow_factory() as uow:
             # TODO: заменить uow.client на реальное имя атрибута,

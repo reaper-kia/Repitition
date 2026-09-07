@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from modules.users.domain.enums import Role
 from src.core.config import settings
 from src.modules.auth.application.commands.login_user import LoginUserCommand
 from src.modules.auth.application.exceptions import InvalidTokenError
@@ -98,7 +99,8 @@ async def get_current_user(
     )
 
 
-async def require_admin(
+async def require_roles(
+    role: Role,
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
     if not current_user.is_admin:

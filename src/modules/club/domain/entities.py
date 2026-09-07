@@ -19,7 +19,9 @@ class Club:
     id: UUID = field(default_factory=uuid4)
 
     @classmethod
-    def create(cls, name: str, city: City, manager_user_id: UUID | None = None) -> "Club":
+    def create(
+        cls, name: str, city: City, manager_user_id: UUID | None = None
+    ) -> "Club":
         return cls(name=name, city=city, manager_user_id=manager_user_id)
 
     def assign_manager(self, user_id: UUID) -> None:

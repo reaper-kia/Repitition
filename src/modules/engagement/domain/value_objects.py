@@ -25,7 +25,9 @@ class ChallengeStage:
         if self.order < 1:
             raise ChallengeNotFoundError("Stage order starts at 1")
         if self.duration_days < 1 or self.required_visits < 1:
-            raise ChallengeNotFoundError("Stage must require at least 1 day and 1 visit")
+            raise ChallengeNotFoundError(
+                "Stage must require at least 1 day and 1 visit"
+            )
 
 
 @dataclass(frozen=True)

@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from src.modules.rewards.api.dependencies import get_mediator
 from src.modules.rewards.api.schemas import CreateRewardsRequest, RewardsResponse
 from src.modules.rewards.application.commands.create_rewards import CreateRewardsCommand
-from src.modules.rewards.application.queries.get_rewards_by_id import GetRewardsByIdQuery
+from src.modules.rewards.application.queries.get_rewards_by_id import (
+    GetRewardsByIdQuery,
+)
 from src.modules.rewards.domain.exceptions import RewardsNotFoundError
 from src.shared.application.mediator import Mediator
 

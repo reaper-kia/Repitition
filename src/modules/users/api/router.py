@@ -2,7 +2,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.modules.auth.api.dependencies import get_current_user_id
+from modules.users.domain.enums import Role
+from src.modules.auth.api.dependencies import get_current_user_id, require_roles
 from src.modules.auth.api.rate_limit import limit_register_request
 from src.modules.users.api.dependencies import get_mediator
 from src.modules.users.api.schemas import RegisterUserRequest, UserResponse
@@ -60,6 +61,13 @@ async def register_user(
         is_admin=user.is_admin,
     )
 
+@router.post(
+    "/create-manager",
+    dependencies=[Depends(require_roles(Role.NETWORK_ADMIN))],
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_manager()
 
 @router.get(
     "/me",

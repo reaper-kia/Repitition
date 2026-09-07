@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 
-from src.modules.rewards.application.ports.rewards_repository import RewardsReadRepository
-from src.modules.rewards.application.queries.get_rewards_by_id import GetRewardsByIdQuery
+from src.modules.rewards.application.ports.rewards_repository import (
+    RewardsReadRepository,
+)
+from src.modules.rewards.application.queries.get_rewards_by_id import (
+    GetRewardsByIdQuery,
+)
 from src.modules.rewards.domain.exceptions import RewardsNotFoundError
 
 

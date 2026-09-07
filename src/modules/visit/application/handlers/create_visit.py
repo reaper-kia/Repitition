@@ -10,7 +10,7 @@ class CreateVisitCommandHandler:
     uow_factory: UnitOfWorkFactory
 
     async def handle(self, cmd: CreateVisitCommand) -> Visit:
-        entity = Visit.create(name=cmd.name)
+        entity = Visit.record(name=cmd.name)
 
         async with self.uow_factory() as uow:
             # TODO: заменить uow.visit на реальное имя атрибута,
