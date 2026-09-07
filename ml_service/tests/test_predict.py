@@ -65,3 +65,32 @@ def test_predict_rejects_bad_top_k() -> None:
             json={"subject_id": "u1", "top_k": 0},
         )
     assert response.status_code == 422
+
+def test_churn_task_works_without_model() -> None:
+    """task=churn без артефакта - заглушка, как и для остальных задач."""
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/predict",
+            json={
+                "task": "churn",
+                "subject_id": "u-churn",
+                "features": {"days_since_last_action": 20},
+            },
+        )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["is_fallback"] is True
+    assert len(body["predictions"]) == 1
+
+
+def test_contributions_field_is_optional() -> None:
+    """Поле contributions опционально: заглушка отвечает без него."""
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/predict",
+            json={"task": "anomaly", "subject_id": "u1"},
+        )
+    body = response.json()
+    assert "contributions" not in body["predictions"][0] or (
+        body["predictions"][0]["contributions"] is None
+    )
