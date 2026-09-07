@@ -156,6 +156,7 @@ class ReserveBudgetCommand:
     amount: Decimal
     idempotency_key: str
 
+
 @dataclass(frozen=True)
 class BudgetReservationResult:
     reservation_id: UUID | None
@@ -169,9 +170,12 @@ class BudgetReservationResult:
 class ConsumeReservationCommand:
     reservation_id: UUID
     amount: Decimal
-    grant_purpose: Literal["ONBOARDING", "REFERRAL_INVITEE", "REFERRAL_REFERRER", "RETENTION"]
+    grant_purpose: Literal[
+        "ONBOARDING", "REFERRAL_INVITEE", "REFERRAL_REFERRER", "RETENTION"
+    ]
     client_id: UUID
     source_key: str
+
 
 @dataclass(frozen=True)
 class DiscountGrantResult:
@@ -210,6 +214,7 @@ class GetApplicableGrantsQuery:
     client_id: UUID
     purchase_type: Literal["MEMBERSHIP", "RENEWAL", "PERSONAL_TRAINING", "PRODUCT"]
 
+
 @dataclass(frozen=True)
 class ApplicableGrant:
     grant_id: UUID
@@ -234,7 +239,7 @@ class RetentionCaseSummary:
     case_id: UUID
     client_id: UUID
     client_name: str
-    risk_score: float        # 0..1. Нет ML -> правило даёт 0.0 или 1.0
+    risk_score: float  # 0..1. Нет ML -> правило даёт 0.0 или 1.0
     risk_reasons: list[str]  # ["11 дней без визита", "пропали групповые"]
     detected_at: datetime
 ```

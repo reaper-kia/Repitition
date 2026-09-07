@@ -14,6 +14,7 @@ from src.modules.users.application.handlers.register_user import (
 from src.modules.users.application.queries.get_user_by_id import GetUserByIdQuery
 from src.modules.users.application.read_models import UserReadModel
 from src.modules.users.domain.entities import User
+from src.modules.users.domain.enums import Role
 from src.modules.users.domain.exceptions import (
     EmailAlreadyExistError,
     InvalidEmailError,
@@ -64,20 +65,31 @@ def test_password_rejects_invalid_length(password: str) -> None:
 
 
 @pytest.mark.unit
-def test_user_register_preserves_admin_flag() -> None:
+def test_user_register_preserves_explicit_role() -> None:
     user = User.register(
         name=UserName("Admin"),
         email=Email("admin@example.com"),
         password_hash="hash",
-        is_admin=True,
+        role=Role.NETWORK_ADMIN,
     )
 
-    assert user.is_admin is True
+    assert user.role is Role.NETWORK_ADMIN
+
+
+@pytest.mark.unit
+def test_user_register_uses_client_role_by_default() -> None:
+    user = User.register(
+        name=UserName("Client"),
+        email=Email("client@example.com"),
+        password_hash="hash",
+    )
+
+    assert user.role is Role.CLIENT
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_register_user_handler_saves_user() -> None:
+async def test_register_user_handler_saves_client() -> None:
     users = SimpleNamespace(
         get_by_email=AsyncMock(return_value=None),
         add=AsyncMock(),
@@ -96,6 +108,7 @@ async def test_register_user_handler_saves_user() -> None:
     assert user.name.value == "Alice"
     assert user.email.value == "alice@example.com"
     assert user.password_hash == "hashed:password123"
+    assert user.role is Role.CLIENT
     users.add.assert_awaited_once_with(user)
     uow.commit.assert_awaited_once()
 
@@ -130,7 +143,7 @@ async def test_get_user_handler_returns_read_model() -> None:
         id=USER_ID,
         name="Alice",
         email="alice@example.com",
-        is_admin=False,
+        role=Role.CLIENT,
     )
     repo = SimpleNamespace(get_by_id=AsyncMock(return_value=model))
     handler = GetUserByIdQueryHandler(repo)
