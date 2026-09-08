@@ -1,5 +1,6 @@
 from typing import Protocol, Self
 
+from src.modules.rewards.application.ports.reward_repository import RewardRepository
 from src.modules.users.application.ports.user_repository import UserRepository
 from src.shared.outbox.application.repositories import OutboxRepository
 
@@ -14,6 +15,7 @@ class UnitOfWork(Protocol):
 
     users: UserRepository
     outbox: OutboxRepository
+    rewards: RewardRepository
 
     async def __aenter__(self) -> Self: ...
 

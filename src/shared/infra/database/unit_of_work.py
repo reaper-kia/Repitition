@@ -2,6 +2,7 @@ from typing import Self
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.modules.rewards.infra.repositories import SQLAlchemyRewardRepository
 from src.modules.users.infra.repositories import SQLAlchemyUserRepository
 from src.shared.application.unit_of_work import UnitOfWork
 from src.shared.outbox.infra.repositories import SQLAlchemyOutboxRepository
@@ -15,6 +16,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.session = self._session_factory()
         self.users = SQLAlchemyUserRepository(self.session)
         self.outbox = SQLAlchemyOutboxRepository(self.session)
+        self.rewards = SQLAlchemyRewardRepository(self.session)
 
         return self
 

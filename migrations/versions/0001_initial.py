@@ -94,7 +94,6 @@ def upgrade() -> None:
         ["event_type"],
         unique=False,
     )
-    op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
     op.create_index(op.f("ix_users_role"), "users", ["role"], unique=False)
     op.create_index(
         op.f("ix_outbox_messages_key"), "outbox_messages", ["key"], unique=False

@@ -14,6 +14,13 @@ from src.shared.infra.database.base import Base
 from src.modules.users.infra.models import UserModel
 from src.shared.outbox.infra.models import OutboxMessageModel
 
+from src.modules.rewards.infra.models import (
+    RewardBudgetModel,
+    BudgetReservationModel,
+    DiscountGrantModel,
+)
+from src.modules.engagement.infra.models import RetentionCaseModel
+
 config = context.config
 
 config.set_main_option("sqlalchemy.url", settings.database_url)
