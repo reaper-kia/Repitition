@@ -6,11 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Импорт роутеров модулей.
-# Новый модуль -> добавить сюда одну строку и один include_router ниже.
 from src.core.config import settings
 from src.modules.auth.api.router import router as auth_router
 from src.modules.users.api.router import router as users_router
+from src.modules.club.api.router import router as club_router
+# Временно отключаем остальные нереализованные модули
+# from src.modules.achivement.api.router import router as achivement_router
+# from src.modules.client.api.router import router as client_router
+# from src.modules.rewards.api.router import router as rewards_router
+# from src.modules.visit.api.router import router as visit_router
 from src.shared.infra.database.health import check_database_connection
 from src.shared.infra.database.session import get_async_session
 from src.shared.infra.redis.client import close_redis_client
@@ -30,8 +34,8 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    app.add_middleware(  # type: ignore[call-arg]
-        CORSMiddleware,  # type: ignore[arg-type]
+    app.add_middleware(
+        CORSMiddleware,
         allow_origins=[
             "http://localhost:5173",
             "http://127.0.0.1:5173",
@@ -44,6 +48,11 @@ def create_app() -> FastAPI:
 
     app.include_router(users_router)
     app.include_router(auth_router)
+    app.include_router(club_router)
+    # app.include_router(achivement_router)
+    # app.include_router(client_router)
+    # app.include_router(rewards_router)
+    # app.include_router(visit_router)
 
     @app.get("/health")
     async def health_check() -> dict[str, str]:

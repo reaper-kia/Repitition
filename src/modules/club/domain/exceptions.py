@@ -1,6 +1,26 @@
-class ClubNotFoundError(Exception):
-    """Сущность Club не найдена."""
+class ClubDomainError(Exception):
+    pass
 
 
-class ClubAlreadyExistsError(Exception):
-    """Нарушение уникальности при создании Club."""
+class ClubNotFoundError(ClubDomainError):
+    pass
+
+
+class ClubAlreadyExistsError(ClubDomainError):
+    pass
+
+
+class InvalidClubNameError(ClubDomainError):
+    pass
+
+
+class InvalidCityError(ClubDomainError):
+    pass
+
+
+class ManagerUserNotFoundError(ClubDomainError):
+    pass
+
+
+class ManagerUserNotClubManagerError(ClubDomainError):
+    pass
