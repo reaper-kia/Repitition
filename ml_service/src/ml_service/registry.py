@@ -1,156 +1,143 @@
-"""Загрузка моделей и безопасный вызов инференса.
+"""Реестр моделей: загрузка артефактов, маршрутизация по task, защита демо.
 
-Три правила безопасности (сохранены для КАЖДОЙ модели отдельно):
-1. Сервис стартует даже если моделей нет.
-2. Любое исключение внутри модели -> заглушка, а не 500.
-3. Инференс дольше таймаута -> заглушка, а не зависшее демо.
+Три правила безопасности для КАЖДОЙ модели отдельно:
+- нет файла модели      -> заглушка;
+- модель бросила исключение -> заглушка;
+- модель думает дольше таймаута -> заглушка.
 
-Этап 3: реестр стал мультимодельным. MODEL_PATH - теперь папка
-(artifacts/), реестр сканирует все *.joblib, читает supported_tasks
-каждого артефакта и строит маршрутизацию task -> predictor.
-Сломанная churn-модель не ломает работающий антифрод: каждый
-артефакт грузится в своём try, ошибки изолированы.
+Сломанная churn-модель не должна ломать работающий антифрод,
+и наоборот: каждый артефакт грузится в своём try/except.
 """
 
-import asyncio
 import logging
-from typing import Any, Protocol
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
+from pathlib import Path
+from typing import Any
 
 import joblib
 
 from ml_service.config import settings
-from ml_service.fallback import FALLBACK_VERSION, predict_fallback
+from ml_service.fallback import predict_fallback
 from ml_service.schemas import Prediction, PredictRequest, TaskType
 
 logger = logging.getLogger(__name__)
 
 
-class Predictor(Protocol):
-    """Интерфейс, которому должна соответствовать любая твоя модель."""
+def _build_predictor(artifact: dict[str, Any]):
+    """По полю predictor_type из артефакта строим нужный класс модели."""
+    predictor_type = artifact.get("predictor_type")
 
-    version: str
-    supported_tasks: list[TaskType]
-
-    def predict(self, request: PredictRequest) -> list[Prediction]: ...
-
-
-def _build_predictor(artifact: dict[str, Any]) -> Predictor:
-    """Создаёт predictor по полю predictor_type из артефакта."""
-    predictor_type = artifact["predictor_type"]
-
-    if predictor_type == "recommender":
-        from ml_service.models.recommender import CosineRecommender
-
-        return CosineRecommender.from_artifact(artifact)
     if predictor_type == "anomaly":
         from ml_service.models.anomaly import IsolationForestDetector
 
         return IsolationForestDetector.from_artifact(artifact)
+
     if predictor_type == "churn":
         from ml_service.models.churn import ChurnPredictor
 
         return ChurnPredictor.from_artifact(artifact)
 
-    raise ValueError(f"Неизвестный predictor_type: {predictor_type}")
+    if predictor_type == "cluster":
+        from ml_service.models.clustering import KMeansClusterer
+
+        return KMeansClusterer.from_artifact(artifact)
+
+    logger.warning("Неизвестный predictor_type=%s, артефакт пропущен", predictor_type)
+    return None
 
 
 class ModelRegistry:
     def __init__(self) -> None:
-        # Маршрутизация: тип задачи -> модель, которая её обслуживает.
-        self._predictors: dict[TaskType, Predictor] = {}
-
-    @property
-    def is_loaded(self) -> bool:
-        return bool(self._predictors)
-
-    @property
-    def version(self) -> str:
-        if not self._predictors:
-            return FALLBACK_VERSION
-        versions = sorted({p.version for p in self._predictors.values()})
-        return "+".join(versions)
-
-    @property
-    def supported_tasks(self) -> list[TaskType]:
-        if self._predictors:
-            return list(self._predictors)
-        return list(TaskType)
+        self._predictors: dict[TaskType, Any] = {}
+        self._versions: dict[TaskType, str] = {}
+        self.load()
 
     def load(self) -> None:
-        """Вызывается один раз на старте приложения.
+        """Сканируем папку artifacts/*.joblib, каждый артефакт грузим изолированно."""
+        self._predictors.clear()
+        self._versions.clear()
 
-        Никогда не бросает исключение наружу - иначе контейнер
-        уйдёт в рестарт-луп посреди хакатона.
-        """
-        if not settings.model_dir.exists():
-            logger.warning(
-                "Папка артефактов %s не найдена. Работаем на заглушке. "
-                "Обучи модели: python -m training.train_anomaly, "
-                "python -m training.train_churn",
-                settings.model_dir,
-            )
+        model_dir = Path(settings.model_dir)
+        if not model_dir.exists():
+            logger.warning("Папка моделей %s не существует - работаем на заглушке", model_dir)
             return
 
-        artifact_paths = sorted(settings.model_dir.glob("*.joblib"))
-        if not artifact_paths:
-            logger.warning(
-                "В %s нет ни одного .joblib. Работаем на заглушке.",
-                settings.model_dir,
-            )
-            return
-
-        for path in artifact_paths:
-            # Каждый артефакт грузится изолированно: битый файл
-            # не мешает соседним моделям подняться.
+        for path in sorted(model_dir.glob("*.joblib")):
             try:
-                artifact: dict[str, Any] = joblib.load(path)
+                artifact = joblib.load(path)
                 predictor = _build_predictor(artifact)
+                if predictor is None:
+                    continue
+                for task in predictor.supported_tasks:
+                    if task in self._predictors:
+                        # Коллизия: две модели на одну задачу (например, числовая
+                        # и текстовая кластеризация). Оставляем первую загруженную.
+                        logger.warning("Коллизия task=%s: оставляем первый загруженный", task)
+                        continue
+                    self._predictors[task] = predictor
+                    self._versions[task] = getattr(predictor, "version", path.name)
+                logger.info(
+                    "Модель %s загружена, задачи: %s",
+                    path.name,
+                    [t.value for t in predictor.supported_tasks],
+                )
             except Exception:
-                logger.exception("Не удалось загрузить %s, пропускаем", path)
-                continue
+                logger.exception(
+                    "Не удалось загрузить %s - пропускаем её, остальные модели живы",
+                    path.name,
+                )
 
-            for task in predictor.supported_tasks:
-                self._predictors.setdefault(task, predictor)
-            logger.info(
-                "Загружен %s (%s) -> задачи %s",
-                path.name,
-                predictor.version,
-                [task.value for task in predictor.supported_tasks],
-            )
+    @property
+    def supported_tasks(self) -> list[str]:
+        return sorted(task.value for task in self._predictors)
 
-        if self._predictors:
-            logger.info(
-                "Реестр готов. Задачи: %s",
-                [task.value for task in self._predictors],
-            )
+    @property
+    def model_loaded(self) -> bool:
+        return bool(self._predictors)
 
-    async def predict(self, request: PredictRequest) -> tuple[list[Prediction], bool]:
+    def health(self) -> dict[str, Any]:
+        return {
+            "model_loaded": self.model_loaded,
+            "model_version": "; ".join(sorted(set(self._versions.values()))) or None,
+            "supported_tasks": self.supported_tasks,
+        }
+
+    def predict(self, request: PredictRequest) -> tuple[list[Prediction], bool]:
         """Возвращает (предсказания, is_fallback)."""
         predictor = self._predictors.get(request.task)
         if predictor is None:
-            logger.warning(
-                "Задача %s не обслуживается ни одной моделью, отдаём заглушку",
-                request.task,
-            )
             return predict_fallback(request), True
 
-        try:
-            predictions = await asyncio.wait_for(
-                asyncio.to_thread(predictor.predict, request),
-                timeout=settings.predict_timeout_seconds,
-            )
-        except TimeoutError:
-            logger.warning("Инференс превысил таймаут, отдаём заглушку")
-            return predict_fallback(request), True
-        # Predictor является подключаемым кодом; его сбой переводит сервис на fallback.
-        except Exception:
-            logger.exception("Ошибка внутри модели, отдаём заглушку")
-            return predict_fallback(request), True
+        if not settings.fallback_enabled:
+            # Заглушка выключена намеренно: исключения прорываются наружу (503).
+            return predictor.predict(request), False
 
-        if not predictions:
-            return predict_fallback(request), True
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(predictor.predict, request)
+            try:
+                return future.result(timeout=settings.predict_timeout_seconds), False
+            except FuturesTimeoutError:
+                logger.warning("Таймаут инференса task=%s -> заглушка", request.task)
+            except Exception:
+                logger.exception("Исключение в модели task=%s -> заглушка", request.task)
 
-        return predictions, False
+        return predict_fallback(request), True
+
+    # Имена-алиасы, чтобы main.py нашёл своё привычное имя функции.
+    predict_with_fallback = predict
+    predict_safe = predict
+    health_info = health
 
 
 registry = ModelRegistry()
+
+
+def get_registry() -> ModelRegistry:
+    return registry
+
+
+def load_registry() -> ModelRegistry:
+    """Перечитать артефакты с диска (например, после переобучения)."""
+    registry.load()
+    return registry
