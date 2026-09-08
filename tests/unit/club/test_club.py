@@ -4,11 +4,11 @@ from uuid import uuid4
 
 from src.modules.club.application.commands.create_club import CreateClubCommand
 from src.modules.club.application.commands.update_club_manager import UpdateClubManagerCommand
-from src.modules.club.application.queries.get_club import GetClubQuery
+from src.modules.club.application.queries.get_club_by_id import GetClubByIdQuery
 from src.modules.club.application.queries.list_clubs import ListClubsQuery
 from src.modules.club.application.handlers.create_club import CreateClubHandler
 from src.modules.club.application.handlers.update_club_manager import UpdateClubManagerHandler
-from src.modules.club.application.handlers.get_club import GetClubHandler
+from src.modules.club.application.handlers.get_club_by_id import GetClubHandler
 from src.modules.club.application.handlers.list_clubs import ListClubsHandler
 from src.modules.club.domain.entities import Club
 from src.modules.club.domain.value_objects import ClubName, City
@@ -223,7 +223,7 @@ async def test_get_club_success():
     await repo.add(club)
 
     handler = GetClubHandler(repo)
-    query = GetClubQuery(club_id=club.id)
+    query = GetClubByIdQuery(club_id=club.id)
     found = await handler.handle(query)
 
     assert found.id == club.id
@@ -234,7 +234,7 @@ async def test_get_club_success():
 async def test_get_club_not_found():
     repo = FakeClubRepository()
     handler = GetClubHandler(repo)
-    query = GetClubQuery(club_id=uuid4())
+    query = GetClubByIdQuery(club_id=uuid4())
 
     with pytest.raises(ClubNotFoundError):
         await handler.handle(query)

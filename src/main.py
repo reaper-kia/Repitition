@@ -12,7 +12,7 @@ from src.modules.users.api.router import router as users_router
 from src.modules.club.api.router import router as club_router
 # Временно отключаем остальные нереализованные модули
 # from src.modules.achivement.api.router import router as achivement_router
-# from src.modules.client.api.router import router as client_router
+from src.modules.client.api.router import router as client_router
 # from src.modules.rewards.api.router import router as rewards_router
 # from src.modules.visit.api.router import router as visit_router
 from src.shared.infra.database.health import check_database_connection
@@ -50,7 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(club_router)
     # app.include_router(achivement_router)
-    # app.include_router(client_router)
+    app.include_router(client_router)
     # app.include_router(rewards_router)
     # app.include_router(visit_router)
 

@@ -1,15 +1,27 @@
-from typing import Protocol
+from abc import ABC, abstractmethod
 from uuid import UUID
 
-from src.modules.client.application.read_models import ClientReadModel
 from src.modules.client.domain.entities import Client
 
+class ClientRepository(ABC):
+    """Порт для работы с доменными сущностями Client (Write)."""
+    
+    @abstractmethod
+    async def add(self, client: Client) -> None:
+        """Сохранить нового клиента."""
+        pass
 
-class ClientRepository(Protocol):
-    async def get_by_id(self, id: UUID) -> Client | None: ...
+    @abstractmethod
+    async def get_by_id(self, client_id: UUID) -> Client | None:
+        """Найти клиента по ID (вернуть доменную сущность)."""
+        pass
 
-    async def add(self, entity: Client) -> None: ...
+    @abstractmethod
+    async def get_by_user_id(self, user_id: UUID) -> Client | None:
+        """Найти клиента по user_id (для проверки уникальности)."""
+        pass
 
-
-class ClientReadRepository(Protocol):
-    async def get_by_id(self, id: UUID) -> ClientReadModel | None: ...
+    @abstractmethod
+    async def get_by_referral_code(self, code: str) -> Client | None:
+        """Найти клиента по реферальному коду."""
+        pass

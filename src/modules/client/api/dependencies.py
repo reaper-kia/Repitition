@@ -1,47 +1,50 @@
+# src/modules/client/api/dependencies.py
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.client.application.commands.create_client import CreateClientCommand
-from src.modules.client.application.handlers.create_client import (
-    CreateClientCommandHandler,
-)
-from src.modules.client.application.handlers.get_client_by_id import (
-    GetClientByIdQueryHandler,
-)
-from src.modules.client.application.ports.client_repository import (
-    ClientReadRepository,
-)
-from src.modules.client.application.queries.get_client_by_id import GetClientByIdQuery
-from src.modules.client.infra.repositories import SQLAlchemyClientReadRepository
-from src.shared.api.dependencies import get_unit_of_work_factory
-from src.shared.application.mediator import Mediator
-from src.shared.application.unit_of_work import UnitOfWorkFactory
 from src.shared.infra.database.session import get_async_session
+from src.shared.infra.database.unit_of_work import SQLAlchemyUnitOfWork
+
+from src.modules.client.application.handlers.create_client import CreateClientHandler
+from src.modules.client.application.handlers.get_client_by_id import GetClientByIdHandler, GetClientByUserIdHandler
+from src.modules.client.application.handlers.list_clients import ListClientsByClubHandler
 
 
-def get_client_read_repository(
-    session: AsyncSession = Depends(get_async_session),
-) -> ClientReadRepository:
-    return SQLAlchemyClientReadRepository(session)
+async def get_register_client_handler(
+    session: AsyncSession = Depends(get_async_session)
+) -> CreateClientHandler:
+    uow = SQLAlchemyUnitOfWork(session)
+    return CreateClientHandler(uow)
+
+async def get_client_by_id_handler(
+    session: AsyncSession = Depends(get_async_session)
+) -> GetClientByIdHandler:
+    uow = SQLAlchemyUnitOfWork(session)
+    return GetClientByIdHandler(uow)
+
+async def get_client_by_user_id_handler(
+    session: AsyncSession = Depends(get_async_session)
+) -> GetClientByUserIdHandler:
+    uow = SQLAlchemyUnitOfWork(session)
+    return GetClientByUserIdHandler(uow)
+
+async def list_clients_by_club_handler(
+    session: AsyncSession = Depends(get_async_session)
+) -> ListClientsByClubHandler:
+    uow = SQLAlchemyUnitOfWork(session)
+    return ListClientsByClubHandler(uow)
+
+def get_current_display_name() -> str:
+    """
+    Временная заглушка для получения имени пользователя.
+    TODO: В будущем здесь должна быть логика декодирования JWT и извлечения поля 'name' или 'display_name'.
+    """
+    return "Test User"
 
 
-def get_create_client_handler(
-    uow_factory: UnitOfWorkFactory = Depends(get_unit_of_work_factory),
-) -> CreateClientCommandHandler:
-    return CreateClientCommandHandler(uow_factory=uow_factory)
-
-
-def get_client_by_id_handler(
-    repo: ClientReadRepository = Depends(get_client_read_repository),
-) -> GetClientByIdQueryHandler:
-    return GetClientByIdQueryHandler(client_read_repository=repo)
-
-
-def get_mediator(
-    create_handler: CreateClientCommandHandler = Depends(get_create_client_handler),
-    by_id_handler: GetClientByIdQueryHandler = Depends(get_client_by_id_handler),
-) -> Mediator:
-    mediator = Mediator()
-    mediator.register(CreateClientCommand, create_handler)
-    mediator.register(GetClientByIdQuery, by_id_handler)
-    return mediator
+def get_is_network_admin() -> bool:
+    """
+    Временная заглушка для проверки прав администратора сети.
+    TODO: В будущем здесь должна быть логика декодирования JWT и проверки роли (например, 'role' == 'NETWORK_ADMIN').
+    """
+    return False

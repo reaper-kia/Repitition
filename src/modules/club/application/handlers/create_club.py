@@ -2,16 +2,14 @@ from dataclasses import dataclass
 from src.modules.club.domain.entities import Club
 from src.modules.club.domain.value_objects import ClubName, City
 from src.modules.club.domain.exceptions import ManagerUserNotFoundError, ManagerUserNotClubManagerError
-from src.modules.club.application.ports.club_repository import ClubRepository
-from src.modules.users.application.ports.user_repository import UserRepository
 from src.shared.application.unit_of_work import UnitOfWork
 from src.modules.club.application.commands.create_club import CreateClubCommand
 
 
-@dataclass
+
 class CreateClubHandler:
-    uow: UnitOfWork
-    user_repo: UserRepository  # для проверки менеджера
+    def __init__(self, uow: UnitOfWork):
+        self._uow = uow
 
     async def handle(self, cmd: CreateClubCommand) -> Club:
         # Проверка менеджера, если указан
