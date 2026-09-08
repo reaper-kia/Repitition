@@ -14,6 +14,7 @@ from src.modules.rewards.domain.exceptions import (
     GrantAlreadyRedeemedError,
     GrantNotApplicableError,
     InsufficientBudgetError,
+    InvalidRewardAmountError,
     ReservationExhaustedError,
     ReservationNotActiveError,
 )
@@ -60,7 +61,7 @@ class RewardBudget:
 
     def reserve(self, amount: Decimal) -> None:
         if amount <= 0:
-            raise InsufficientBudgetError("Reservation amount must be positive")
+            raise InvalidRewardAmountError("Amount must be positive")
         if amount > self.available:
             raise InsufficientBudgetError(
                 f"Requested {amount}, available {self.available}"
@@ -69,7 +70,8 @@ class RewardBudget:
         self.version += 1
 
     def consume(self, amount: Decimal) -> None:
-        """Перенос из reserved в spent. Сумма лимита не меняется."""
+        if amount <= 0:
+            raise InvalidRewardAmountError("Amount must be positive")
         if amount > self.reserved:
             raise ReservationExhaustedError("Consuming more than reserved")
         self.reserved -= amount
@@ -77,6 +79,8 @@ class RewardBudget:
         self.version += 1
 
     def release(self, amount: Decimal) -> None:
+        if amount <= 0:
+            raise InvalidRewardAmountError("Amount must be positive")
         if amount > self.reserved:
             raise ReservationExhaustedError("Releasing more than reserved")
         self.reserved -= amount
@@ -111,6 +115,8 @@ class BudgetReservation:
         return self.reserved_amount - self.consumed_amount
 
     def consume(self, amount: Decimal) -> None:
+        if amount <= 0:
+            raise InvalidRewardAmountError("Amount must be positive")
         if self.status is not ReservationStatus.ACTIVE:
             raise ReservationNotActiveError(f"Reservation is {self.status}")
         if amount > self.remaining:
@@ -120,11 +126,6 @@ class BudgetReservation:
         self.consumed_amount += amount
         if self.remaining == 0:
             self.status = ReservationStatus.CONSUMED
-
-    def release(self) -> None:
-        if self.status is not ReservationStatus.ACTIVE:
-            raise ReservationNotActiveError(f"Reservation is {self.status}")
-        self.status = ReservationStatus.RELEASED
 
 
 @dataclass

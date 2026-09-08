@@ -20,3 +20,7 @@ class GrantAlreadyRedeemedError(RewardsDomainError):
 
 class GrantNotApplicableError(RewardsDomainError):
     """Грант неприменим к указанной покупке."""
+
+
+class InvalidRewardAmountError(RewardsDomainError):
+    """Сумма операции должна быть строго положительной."""

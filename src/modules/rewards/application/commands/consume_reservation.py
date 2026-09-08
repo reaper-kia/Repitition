@@ -11,7 +11,12 @@ class ConsumeReservationCommand:
     grant_purpose: Literal["REFERRAL_INVITEE", "REFERRAL_REFERRER", "RETENTION"]
     client_id: UUID
     source_key: str
-    applicable_purchase_type: Literal["MEMBERSHIP", "RENEWAL", "PERSONAL_TRAINING", "PRODUCT"]
+    # расширение сверх CONTRACTS.md §5: домену нужно знать тип покупки
+    # для DiscountGrant.applicable_purchase_type. Согласовано, в контракт
+    # не внесено, чтобы не ломать форму для B2.
+    applicable_purchase_type: Literal[
+        "MEMBERSHIP", "RENEWAL", "PERSONAL_TRAINING", "PRODUCT"
+    ]
 
 
 @dataclass(frozen=True)

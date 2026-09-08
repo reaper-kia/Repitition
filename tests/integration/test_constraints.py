@@ -12,7 +12,9 @@ from src.modules.rewards.infra.models import RewardBudgetModel, BudgetReservatio
 pytestmark = pytest.mark.integration
 
 
-async def _make_budget(session, *, revenue_base, configured_limit, reserved="0", spent="0"):
+async def _make_budget(
+    session, *, revenue_base, configured_limit, reserved="0", spent="0"
+):
     budget_id = uuid.uuid4()
     await session.execute(
         insert(RewardBudgetModel).values(

@@ -16,7 +16,6 @@ class RegisterUserCommandHandler:
     password_hasher: PasswordHasher
 
     async def handle(self, cmd: RegisterUserCommand) -> User:
-
         email = Email(cmd.email)
         name = UserName(cmd.name)
         raw_password = RawPassword(cmd.password)

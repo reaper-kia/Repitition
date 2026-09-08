@@ -5,7 +5,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.client.domain.enums import PurchaseType
-from src.modules.rewards.domain.enums import GrantPurpose, GrantStatus, ReservationSourceType, ReservationStatus
+from src.modules.rewards.domain.enums import (
+    GrantPurpose,
+    GrantStatus,
+    ReservationSourceType,
+    ReservationStatus,
+)
 from src.modules.rewards.application.ports.reward_repository import RewardRepository
 from src.modules.rewards.domain.entities import (
     BudgetReservation,
@@ -38,9 +43,7 @@ class SQLAlchemyRewardRepository(RewardRepository):
         row = await self._session.scalar(stmt)
         return self._to_budget(row) if row else None
 
-    async def get_budget_by_id_for_update(
-        self, budget_id: UUID
-    ) -> RewardBudget | None:
+    async def get_budget_by_id_for_update(self, budget_id: UUID) -> RewardBudget | None:
         stmt = (
             select(RewardBudgetModel)
             .where(RewardBudgetModel.id == budget_id)
@@ -116,12 +119,12 @@ class SQLAlchemyRewardRepository(RewardRepository):
         return BudgetReservation(
             id=row.id,
             budget_id=row.budget_id,
-            source_type=ReservationSourceType(row.source_type),   # ← оборачиваем
+            source_type=ReservationSourceType(row.source_type),  # ← оборачиваем
             source_id=row.source_id,
             reserved_amount=row.reserved_amount,
             consumed_amount=row.consumed_amount,
             idempotency_key=row.idempotency_key,
-            status=ReservationStatus(row.status),                 # ← оборачиваем
+            status=ReservationStatus(row.status),  # ← оборачиваем
             created_at=row.created_at,
         )
 
