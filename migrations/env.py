@@ -20,6 +20,7 @@ from src.modules.rewards.infra.models import (
     BudgetReservationModel,
     DiscountGrantModel,
 )
+from src.modules.visit.infra.models import VisitModel
 
 config = context.config
 

@@ -1,47 +1,39 @@
+# src/modules/visit/api/dependencies.py
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.visit.application.commands.create_visit import CreateVisitCommand
-from src.modules.visit.application.handlers.create_visit import (
-    CreateVisitCommandHandler,
-)
-from src.modules.visit.application.handlers.get_visit_by_id import (
-    GetVisitByIdQueryHandler,
-)
-from src.modules.visit.application.ports.visit_repository import (
-    VisitReadRepository,
-)
-from src.modules.visit.application.queries.get_visit_by_id import GetVisitByIdQuery
-from src.modules.visit.infra.repositories import SQLAlchemyVisitReadRepository
-from src.shared.api.dependencies import get_unit_of_work_factory
-from src.shared.application.mediator import Mediator
-from src.shared.application.unit_of_work import UnitOfWorkFactory
 from src.shared.infra.database.session import get_async_session
+from src.shared.infra.database.unit_of_work import SQLAlchemyUnitOfWork
+
+from src.modules.visit.application.handlers.record_visit import RecordVisitHandler
+from src.modules.visit.application.handlers.close_visit import CloseVisitHandler
+from src.modules.visit.application.handlers.get_current_club_visits import GetCurrentClubVisitsHandler
+from src.modules.visit.application.handlers.get_client_visits_history import GetClientVisitsHistoryHandler
 
 
-def get_visit_read_repository(
-    session: AsyncSession = Depends(get_async_session),
-) -> VisitReadRepository:
-    return SQLAlchemyVisitReadRepository(session)
+async def get_record_visit_handler(
+    session: AsyncSession = Depends(get_async_session)
+) -> RecordVisitHandler:
+    uow = SQLAlchemyUnitOfWork(session)
+    return RecordVisitHandler(uow)
 
 
-def get_create_visit_handler(
-    uow_factory: UnitOfWorkFactory = Depends(get_unit_of_work_factory),
-) -> CreateVisitCommandHandler:
-    return CreateVisitCommandHandler(uow_factory=uow_factory)
+async def get_close_visit_handler(
+    session: AsyncSession = Depends(get_async_session)
+) -> CloseVisitHandler:
+    uow = SQLAlchemyUnitOfWork(session)
+    return CloseVisitHandler(uow)
 
 
-def get_visit_by_id_handler(
-    repo: VisitReadRepository = Depends(get_visit_read_repository),
-) -> GetVisitByIdQueryHandler:
-    return GetVisitByIdQueryHandler(visit_read_repository=repo)
+async def get_current_club_visits_handler(
+    session: AsyncSession = Depends(get_async_session)
+) -> GetCurrentClubVisitsHandler:
+    uow = SQLAlchemyUnitOfWork(session)
+    return GetCurrentClubVisitsHandler(uow)
 
 
-def get_mediator(
-    create_handler: CreateVisitCommandHandler = Depends(get_create_visit_handler),
-    by_id_handler: GetVisitByIdQueryHandler = Depends(get_visit_by_id_handler),
-) -> Mediator:
-    mediator = Mediator()
-    mediator.register(CreateVisitCommand, create_handler)
-    mediator.register(GetVisitByIdQuery, by_id_handler)
-    return mediator
+async def get_client_visits_history_handler(
+    session: AsyncSession = Depends(get_async_session)
+) -> GetClientVisitsHistoryHandler:
+    uow = SQLAlchemyUnitOfWork(session)
+    return GetClientVisitsHistoryHandler(uow)

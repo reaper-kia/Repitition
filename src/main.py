@@ -10,6 +10,7 @@ from src.core.config import settings
 from src.modules.auth.api.router import router as auth_router
 from src.modules.users.api.router import router as users_router
 from src.modules.club.api.router import router as club_router
+from src.modules.visit.api.router import router as visit_router
 
 # Временно отключаем остальные нереализованные модули
 # from src.modules.achivement.api.router import router as achivement_router
@@ -54,7 +55,7 @@ def create_app() -> FastAPI:
     # app.include_router(achivement_router)
     app.include_router(client_router)
     # app.include_router(rewards_router)
-    # app.include_router(visit_router)
+    app.include_router(visit_router)
 
     @app.get("/health")
     async def health_check() -> dict[str, str]:
