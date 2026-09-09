@@ -11,70 +11,15 @@ import type {
   ResolveCaseRequest,
 } from './types';
 
-const ACCOUNTS_KEY = 'mock_registered_users_v1';
-const SESSION_KEY = 'mock_current_session_v1';
-
-interface StoredAccount {
-  user: MeResponse;
-  password: string;
-}
-
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 const randomDelay = () => delay(300 + Math.random() * 300);
+
+let currentUser: MeResponse | null = null;
+const registeredUsers = new Map<string, MeResponse>();
 
 const MOCK_CLIENT: MeResponse = { id: '1', name: 'Анна Иванова', email: 'anna@mail.com', role: 'CLIENT' };
 const MOCK_MANAGER: MeResponse = { id: '2', name: 'Пётр Сидоров', email: 'manager@mail.com', role: 'CLUB_MANAGER' };
 const MOCK_ADMIN: MeResponse = { id: '3', name: 'Иван Петров', email: 'admin@mail.com', role: 'NETWORK_ADMIN' };
-
-const PRESET: Record<string, MeResponse> = {
-  'anna@mail.com': MOCK_CLIENT,
-  'manager@mail.com': MOCK_MANAGER,
-  'admin@mail.com': MOCK_ADMIN,
-};
-
-function loadAccounts(): Record<string, StoredAccount> {
-  try {
-    const raw = localStorage.getItem(ACCOUNTS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, StoredAccount>;
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveAccounts(): void {
-  try {
-    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-  } catch {
-    // localStorage недоступен — молча пропускаем
-  }
-}
-
-let accounts: Record<string, StoredAccount> = loadAccounts();
-let currentUser: MeResponse | null = null;
-
-function setSession(user: MeResponse | null): void {
-  currentUser = user;
-  try {
-    if (user) localStorage.setItem(SESSION_KEY, user.email);
-    else localStorage.removeItem(SESSION_KEY);
-  } catch {
-    // игнорируем
-  }
-}
-
-function restoreSession(): MeResponse | null {
-  try {
-    const email = localStorage.getItem(SESSION_KEY);
-    if (!email) return null;
-    if (PRESET[email]) return PRESET[email];
-    const acc = accounts[email];
-    return acc ? acc.user : null;
-  } catch {
-    return null;
-  }
-}
 
 const annaRank: RankProgress = { code: 'REGULAR', title: 'Завсегдатай', visits_total: 34, next_title: 'Атлет', visits_to_next: 46 };
 const managerRank: RankProgress = { code: 'MAX', title: 'Легенда', visits_total: 120, next_title: null, visits_to_next: null };
@@ -108,14 +53,13 @@ const retentionCases: RetentionCaseSummary[] = [
   { case_id: 'c5', client_id: '14', client_name: 'Дмитрий Попов', risk_score: 0.15, risk_reasons: ['Сезонное снижение активности'], detected_at: '2025-09-01T10:00:00Z' },
 ];
 
-function isPreset(): boolean {
-  return currentUser !== null && Boolean(PRESET[currentUser.email]);
+function isAnna(): boolean {
+  return currentUser?.email === 'anna@mail.com';
 }
 
 export const mockApi: ApiClient = {
   async getMe() {
     await randomDelay();
-    if (!currentUser) currentUser = restoreSession();
     if (!currentUser) throw { status: 401, code: 'UNAUTHENTICATED', message: 'Not logged in' };
     return currentUser;
   },
@@ -123,16 +67,12 @@ export const mockApi: ApiClient = {
   async login(data: LoginRequest) {
     await randomDelay();
     const email = data.email.trim().toLowerCase();
-    if (PRESET[email]) {
-      setSession(PRESET[email]);
-      return { user: PRESET[email], referral_discount_promised: false };
-    }
-    const acc = accounts[email];
-    if (!acc || acc.password !== data.password) {
-      throw { status: 401, code: 'UNAUTHENTICATED', message: 'Неверный email или пароль' };
-    }
-    setSession(acc.user);
-    return { user: acc.user, referral_discount_promised: false };
+    if (email === 'anna@mail.com') { currentUser = MOCK_CLIENT; return { user: MOCK_CLIENT, referral_discount_promised: false }; }
+    if (email === 'manager@mail.com') { currentUser = MOCK_MANAGER; return { user: MOCK_MANAGER, referral_discount_promised: false }; }
+    if (email === 'admin@mail.com') { currentUser = MOCK_ADMIN; return { user: MOCK_ADMIN, referral_discount_promised: false }; }
+    const registered = registeredUsers.get(email);
+    if (registered) { currentUser = registered; return { user: registered, referral_discount_promised: false }; }
+    throw { status: 401, code: 'UNAUTHENTICATED', message: 'Неверный email или пароль' };
   },
 
   async register(data: RegisterRequest) {
@@ -141,24 +81,23 @@ export const mockApi: ApiClient = {
     if (data.referral_code && data.referral_code !== 'ABC123') {
       throw { status: 422, code: 'INVALID_REFERRAL_CODE', message: 'Код не найден', details: { referral_code: ['Код не найден'] } };
     }
-    if (PRESET[email] || accounts[email]) {
+    if (registeredUsers.has(email) || email === 'anna@mail.com' || email === 'manager@mail.com' || email === 'admin@mail.com') {
       throw { status: 409, code: 'CLIENT_ALREADY_EXISTS', message: 'Аккаунт уже существует' };
     }
     const newUser: MeResponse = {
-      id: 'u' + String(Object.keys(accounts).length + 10),
+      id: 'u' + String(registeredUsers.size + 10),
       name: data.name.trim(),
       email,
       role: 'CLIENT',
     };
-    accounts[email] = { user: newUser, password: data.password };
-    saveAccounts();
-    setSession(newUser);
+    registeredUsers.set(email, newUser);
+    currentUser = newUser;
     return { user: newUser, referral_discount_promised: Boolean(data.referral_code) };
   },
 
   async logout() {
     await randomDelay();
-    setSession(null);
+    currentUser = null;
   },
 
   async getClubs() {
@@ -173,22 +112,22 @@ export const mockApi: ApiClient = {
     await randomDelay();
     if (!currentUser) throw { status: 401, code: 'UNAUTHENTICATED', message: 'Not logged in' };
     if (currentUser.role !== 'CLIENT') return managerRank;
-    return isPreset() && currentUser.email === 'anna@mail.com' ? annaRank : newbieRank;
+    return isAnna() ? annaRank : newbieRank;
   },
 
   async getAchievements() {
     await randomDelay();
-    return currentUser?.email === 'anna@mail.com' ? annaAchievements : newbieAchievements;
+    return isAnna() ? annaAchievements : newbieAchievements;
   },
 
   async getChallenge() {
     await randomDelay();
-    return currentUser?.email === 'anna@mail.com' ? annaChallenge : newbieChallenge;
+    return isAnna() ? annaChallenge : newbieChallenge;
   },
 
   async getGrants() {
     await randomDelay();
-    return currentUser?.email === 'anna@mail.com' ? annaGrants : newbieGrants;
+    return isAnna() ? annaGrants : newbieGrants;
   },
 
   async getRetentionCases() {
@@ -208,7 +147,6 @@ export const mockApi: ApiClient = {
 
   async getLeaderboard() {
     await randomDelay();
-    const isAnna = currentUser?.email === 'anna@mail.com';
     return {
       week: '2025-W36',
       entries: [
@@ -217,8 +155,8 @@ export const mockApi: ApiClient = {
         { position: 3, client_id: '6', display_name: 'Елена К.', visits: 8 },
         { position: 4, client_id: '7', display_name: 'Олег Р.', visits: 7 },
       ],
-      my_position: isAnna ? 1 : null,
-      my_visits: isAnna ? 12 : null,
+      my_position: isAnna() ? 1 : null,
+      my_visits: isAnna() ? 12 : null,
     };
   },
 };

@@ -1,30 +1,20 @@
 import { apiClient } from '../../shared/api/client';
-
-export interface CurrentUser {
-  id: string;
-  name: string;
-  email: string;
-  is_admin: boolean;
-}
-
-export interface RegisterAdminPayload {
-  name: string;
-  email: string;
-  password: string;
-  admin_code: string;
-}
+import type { MeResponse, LoginRequest, RegisterRequest, AuthResponse, ClubSummary } from '../../shared/api/types';
 
 export const authApi = {
-  login(email: string, password: string): Promise<{ message: string }> {
-    return apiClient.post('/auth/login', { email, password });
+  login(data: LoginRequest): Promise<AuthResponse> {
+    return apiClient.post('/api/v1/auth/login', data);
   },
-  registerAdmin(payload: RegisterAdminPayload): Promise<CurrentUser> {
-    return apiClient.post('/users/register', payload);
+  register(data: RegisterRequest): Promise<AuthResponse> {
+    return apiClient.post('/api/v1/auth/register', data);
   },
-  logout(): Promise<{ message: string }> {
-    return apiClient.post('/auth/logout', {});
+  logout(): Promise<void> {
+    return apiClient.post('/api/v1/auth/logout', {});
   },
-  me(): Promise<CurrentUser> {
-    return apiClient.get('/users/me');
+  me(): Promise<MeResponse> {
+    return apiClient.get('/api/v1/users/me');
+  },
+  getClubs(): Promise<ClubSummary[]> {
+    return apiClient.get('/api/v1/clubs');
   },
 };
