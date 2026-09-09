@@ -1,28 +1,22 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
-import { ApiError } from '../../shared/api/client';
+import type { ReactNode } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useUser } from '../../entities/user/useUser';
+import type { Role } from '../../shared/api/types';
 import { ErrorMessage } from '../../shared/ui/ErrorMessage';
 import { Loading } from '../../shared/ui/Loading';
-import { authApi } from './api';
 
-export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<'loading' | 'allowed' | 'denied' | 'error'>('loading');
-  const [retryKey, setRetryKey] = useState(0);
+interface ProtectedRouteProps {
+  children: ReactNode;
+  allow?: Role[];
+}
 
-  useEffect(() => {
-    let active = true;
-    setState('loading');
-    authApi.me()
-      .then((user) => active && setState(user.is_admin ? 'allowed' : 'denied'))
-      .catch((error: unknown) => {
-        if (!active) return;
-        setState(error instanceof ApiError && (error.status === 401 || error.status === 403) ? 'denied' : 'error');
-      });
-    return () => { active = false; };
-  }, [retryKey]);
+export function ProtectedRoute({ children, allow }: ProtectedRouteProps) {
+  const { user, loading, error, reload } = useUser();
+  const location = useLocation();
 
-  if (state === 'loading') return <div className="route-state"><Loading /></div>;
-  if (state === 'denied') return <Navigate to="/login" replace />;
-  if (state === 'error') return <div className="route-state"><ErrorMessage message="Не удалось проверить сессию" onRetry={() => setRetryKey((key) => key + 1)} /></div>;
-  return children;
+  if (loading) return <div className="route-state"><Loading /></div>;
+  if (error) return <div className="route-state"><ErrorMessage message={error} onRetry={() => void reload()} /></div>;
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (allow && !allow.includes(user.role)) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }

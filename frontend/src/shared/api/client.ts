@@ -13,34 +13,36 @@ const statusMessages: Record<number, string> = {
 
 export class ApiError extends Error {
   readonly status: number;
+  readonly code?: string;
   readonly details?: unknown;
 
-  constructor(
-    message: string,
-    status: number,
-    details?: unknown,
-  ) {
+  constructor(message: string, status: number, code?: string, details?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
     this.details = details;
   }
 }
 
-function extractMessage(payload: unknown, status: number): string {
+function extractError(payload: unknown, status: number): { message: string; code?: string; details?: unknown } {
   if (payload && typeof payload === 'object') {
     const detail = 'detail' in payload ? payload.detail : undefined;
     const message = 'message' in payload ? payload.message : undefined;
-    if (typeof detail === 'string') return detail;
-    if (typeof message === 'string') return message;
+    const code = 'code' in payload ? payload.code : undefined;
+    const details = 'details' in payload ? payload.details : undefined;
+    
+    if (typeof detail === 'string') return { message: detail, code: code as string | undefined, details };
+    if (typeof message === 'string') return { message, code: code as string | undefined, details };
     if (Array.isArray(detail) && detail.length > 0) {
       const first = detail[0];
       if (first && typeof first === 'object' && 'msg' in first && typeof first.msg === 'string') {
-        return first.msg.replace(/^Value error,\s*/i, '');
+        return { message: first.msg.replace(/^Value error,\s*/i, ''), code: code as string | undefined, details };
       }
     }
+    if (details) return { message: statusMessages[status] ?? `Ошибка запроса (${status})`, code: code as string | undefined, details };
   }
-  return statusMessages[status] ?? `Ошибка запроса (${status})`;
+  return { message: statusMessages[status] ?? `Ошибка запроса (${status})` };
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -57,7 +59,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (!response.ok) {
     const payload: unknown = await response.json().catch(() => undefined);
-    throw new ApiError(extractMessage(payload, response.status), response.status, payload);
+    const errorInfo = extractError(payload, response.status);
+    throw new ApiError(errorInfo.message, response.status, errorInfo.code, errorInfo.details);
   }
 
   if (response.status === 204) return undefined as T;
@@ -65,14 +68,16 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const apiClient = {
-  get: <T>(endpoint: string, signal?: AbortSignal) =>
-    request<T>(endpoint, { method: 'GET', signal }),
-  post: <T>(endpoint: string, body: unknown) =>
-    request<T>(endpoint, { method: 'POST', body: JSON.stringify(body) }),
-  patch: <T>(endpoint: string, body?: unknown) =>
+  get: <T>(endpoint: string, options?: { signal?: AbortSignal; headers?: Record<string, string> }) =>
+    request<T>(endpoint, { method: 'GET', signal: options?.signal, headers: options?.headers }),
+  post: <T>(endpoint: string, body: unknown, options?: { headers?: Record<string, string> }) =>
+    request<T>(endpoint, { method: 'POST', body: JSON.stringify(body), headers: options?.headers }),
+  patch: <T>(endpoint: string, body?: unknown, options?: { headers?: Record<string, string> }) =>
     request<T>(endpoint, {
       method: 'PATCH',
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      headers: options?.headers,
     }),
-  delete: <T>(endpoint: string) => request<T>(endpoint, { method: 'DELETE' }),
+  delete: <T>(endpoint: string, options?: { headers?: Record<string, string> }) =>
+    request<T>(endpoint, { method: 'DELETE', headers: options?.headers }),
 };
