@@ -13,6 +13,7 @@ rsync -av ./ "$TMP_DIR" \
   --exclude ".idea" \
   --exclude ".vscode" \
   --exclude "myenv" \
+  --exclude "myvenv" \
   --exclude "venv" \
   --exclude ".venv" \
   --exclude "ci-venv" \

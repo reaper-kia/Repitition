@@ -19,4 +19,9 @@ class UserModel(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(500), nullable=False)
-    role: Mapped[Role] = mapped_column(String(255), default=Role.CLIENT.value, nullable=False)
+    role: Mapped[str] = mapped_column(
+        String(32),
+        default=Role.CLIENT.value,
+        nullable=False,
+        index=True,
+    )

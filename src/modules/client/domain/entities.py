@@ -75,7 +75,9 @@ class Client:
         if self.status is ClientStatus.BLOCKED:
             return
         self.status = (
-            ClientStatus.ACTIVE if self.membership.is_active(at) else ClientStatus.EXPIRED
+            ClientStatus.ACTIVE
+            if self.membership.is_active(at)
+            else ClientStatus.EXPIRED
         )
 
 

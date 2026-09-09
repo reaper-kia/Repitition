@@ -2,20 +2,42 @@ from dataclasses import dataclass
 
 from src.modules.club.application.commands.create_club import CreateClubCommand
 from src.modules.club.domain.entities import Club
+from src.modules.club.domain.exceptions import (
+    ManagerUserNotClubManagerError,
+    ManagerUserNotFoundError,
+)
+from src.modules.club.domain.value_objects import City, ClubName
+from src.modules.users.domain.enums import Role
 from src.shared.application.unit_of_work import UnitOfWorkFactory
 
 
 @dataclass
-class CreateClubCommandHandler:
+class CreateClubHandler:
     uow_factory: UnitOfWorkFactory
 
     async def handle(self, cmd: CreateClubCommand) -> Club:
-        entity = Club.create(name=cmd.name)
+        name = ClubName(cmd.name)
+        city = City(cmd.city)
 
         async with self.uow_factory() as uow:
-            # TODO: заменить uow.club на реальное имя атрибута,
-            # которое ты добавишь в UnitOfWork (см. подсказку после генерации)
-            await uow.club.add(entity)
+            if cmd.manager_user_id is not None:
+                user = await uow.users.get_by_id(cmd.manager_user_id)
+                if user is None:
+                    raise ManagerUserNotFoundError(
+                        f"User {cmd.manager_user_id} not found"
+                    )
+                if user.role is not Role.CLUB_MANAGER:
+                    raise ManagerUserNotClubManagerError(
+                        f"User {cmd.manager_user_id} is not a club manager"
+                    )
+
+            club = Club.create(
+                name=name,
+                city=city,
+                manager_user_id=cmd.manager_user_id,
+            )
+
+            await uow.clubs.add(club)
             await uow.commit()
 
-        return entity
+        return club

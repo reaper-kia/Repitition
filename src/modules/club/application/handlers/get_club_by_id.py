@@ -1,18 +1,20 @@
 from dataclasses import dataclass
 
-from src.modules.club.application.ports.club_repository import ClubReadRepository
 from src.modules.club.application.queries.get_club_by_id import GetClubByIdQuery
+from src.modules.club.domain.entities import Club
 from src.modules.club.domain.exceptions import ClubNotFoundError
+from src.shared.application.unit_of_work import UnitOfWorkFactory
 
 
 @dataclass
-class GetClubByIdQueryHandler:
-    club_read_repository: ClubReadRepository
+class GetClubHandler:
+    uow_factory: UnitOfWorkFactory
 
-    async def handle(self, query: GetClubByIdQuery):
-        result = await self.club_read_repository.get_by_id(query.id)
+    async def handle(self, query: GetClubByIdQuery) -> Club:
+        async with self.uow_factory() as uow:
+            club = await uow.clubs.get_by_id(query.id)
 
-        if result is None:
-            raise ClubNotFoundError(f"Club {query.id} not found")
+            if club is None:
+                raise ClubNotFoundError(f"Club {query.id} not found")
 
-        return result
+        return club

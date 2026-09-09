@@ -35,7 +35,9 @@ class Visit:
         exited_at: datetime | None = None,
     ) -> "Visit":
         if exited_at is not None and exited_at < entered_at:
-            raise InvalidVisitPeriodError("exited_at must not be earlier than entered_at")
+            raise InvalidVisitPeriodError(
+                "exited_at must not be earlier than entered_at"
+            )
         return cls(
             external_id=external_id,
             client_id=client_id,
@@ -46,5 +48,7 @@ class Visit:
 
     def close(self, exited_at: datetime) -> None:
         if exited_at < self.entered_at:
-            raise InvalidVisitPeriodError("exited_at must not be earlier than entered_at")
+            raise InvalidVisitPeriodError(
+                "exited_at must not be earlier than entered_at"
+            )
         self.exited_at = exited_at

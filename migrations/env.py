@@ -13,6 +13,13 @@ from src.shared.infra.database.base import Base
 # иначе Alembic её не увидит и autogenerate пропустит таблицу.
 from src.modules.users.infra.models import UserModel
 from src.shared.outbox.infra.models import OutboxMessageModel
+from src.modules.club.infra.models import ClubModel
+from src.modules.client.infra.models import ClientModel, PurchaseModel
+from src.modules.rewards.infra.models import (
+    RewardBudgetModel,
+    BudgetReservationModel,
+    DiscountGrantModel,
+)
 
 config = context.config
 

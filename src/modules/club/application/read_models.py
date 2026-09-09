@@ -6,3 +6,6 @@ from uuid import UUID
 class ClubReadModel:
     id: UUID
     name: str
+    city: str
+    manager_user_id: UUID | None
+    is_active: bool

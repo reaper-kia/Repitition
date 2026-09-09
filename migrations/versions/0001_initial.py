@@ -29,10 +29,11 @@ def upgrade() -> None:
         sa.Column("email", sa.String(length=320), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("password_hash", sa.String(length=500), nullable=False),
-        sa.Column("is_admin", sa.Boolean(), nullable=False),
+        sa.Column("role", sa.String(length=32), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
+    op.create_index(op.f("ix_users_role"), "users", ["role"], unique=False)
 
     op.create_table(
         "outbox_messages",
@@ -119,5 +120,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_outbox_messages_aggregate_id"), table_name="outbox_messages")
     op.drop_table("outbox_messages")
 
+    op.drop_index(op.f("ix_users_role"), table_name="users")
     op.drop_index(op.f("ix_users_email"), table_name="users")
     op.drop_table("users")

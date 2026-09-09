@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
-from src.core.config import settings  # <-- импортируем настройки
+from src.modules.users.domain.enums import Role
+
 from src.modules.users.application.commands.register_user import RegisterUserCommand
 from src.modules.users.application.ports.password_hasher import PasswordHasher
 from src.modules.users.domain.entities import User
@@ -15,10 +16,6 @@ class RegisterUserCommandHandler:
     password_hasher: PasswordHasher
 
     async def handle(self, cmd: RegisterUserCommand) -> User:
-        is_admin = False
-        if cmd.admin_code and cmd.admin_code == settings.admin_registration_code:
-            is_admin = True
-
         email = Email(cmd.email)
         name = UserName(cmd.name)
         raw_password = RawPassword(cmd.password)
@@ -34,7 +31,7 @@ class RegisterUserCommandHandler:
                 name=name,
                 email=email,
                 password_hash=password_hash,
-                is_admin=is_admin,
+                role=Role.CLIENT,
             )
 
             await uow.users.add(user)
