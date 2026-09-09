@@ -55,7 +55,9 @@ class SQLAlchemyRewardRepository(RewardRepository):
     async def save_budget(self, budget: RewardBudget) -> None:
         row = await self._session.get(RewardBudgetModel, budget.id)
         if row is None:
-            raise RuntimeError(f"RewardBudgetModel {budget.id} vanished mid-transaction")
+            raise RuntimeError(
+                f"RewardBudgetModel {budget.id} vanished mid-transaction"
+            )
         row.reserved = budget.reserved
         row.spent = budget.spent
         row.released = budget.released
